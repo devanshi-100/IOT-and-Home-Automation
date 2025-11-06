@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏥 Smart Health Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+    
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0a0e1a;
+      color: #f1f5f9;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: 40px 20px;
+      position: relative;
+    }
+    
+    /* Animated background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
+      animation: bgPulse 8s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    @keyframes bgPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+    
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 50px;
+    }
+    
+    h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 25%, #8b5cf6 50%, #ec4899 75%, #06b6d4 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      animation: gradientFlow 4s ease infinite;
+      letter-spacing: -1px;
+    }
+    
+    @keyframes gradientFlow {
+      0%, 100% { background-position: 0% center; }
+      50% { background-position: 100% center; }
+    }
+    
+    .subtitle {
+      font-size: 1rem;
+      color: #94a3b8;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+      box-shadow: 0 0 12px #10b981;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.8; }
+    }
+    
+    /* Cards Grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+      margin-bottom: 50px;
+    }
+    
+    .card {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 24px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 
+        0 4px 24px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+      transition: left 0.6s ease;
+    }
+    
+    .card:hover::before {
+      left: 100%;
+    }
+    
+    .card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(139, 92, 246, 0.4);
+      box-shadow: 
+        0 12px 40px rgba(59, 130, 246, 0.3),
+        0 0 60px rgba(139, 92, 246, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    
+    .card-icon {
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+      display: block;
+      filter: drop-shadow(0 4px 12px rgba(59, 130, 246, 0.4));
+      position: relative;
+    }
+    
+    .card-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      margin-bottom: 12px;
+    }
+    
+    .card-value {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #f1f5f9;
+      letter-spacing: -1px;
+      text-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    
+    .card-unit {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #64748b;
+    }
+    
+    /* Heart Rate Card */
+    .card-heart .card-icon {
+      color: #f43f5e;
+      animation: heartbeat 1.2s infinite;
+    }
+    
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); }
+      10% { transform: scale(1.1); }
+      20% { transform: scale(1); }
+      30% { transform: scale(1.15); }
+      40% { transform: scale(1); }
+    }
+    
+    /* Body Temperature Card - Dynamic States */
+    .card-temp {
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .card-temp.temp-normal {
+      border-color: rgba(16, 185, 129, 0.3);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.8) 100%);
+    }
+    
+    .card-temp.temp-elevated {
+      border-color: rgba(251, 146, 60, 0.4);
+      background: linear-gradient(135deg, rgba(251, 146, 60, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%);
+      animation: warmPulse 2s ease-in-out infinite;
+    }
+    
+    .card-temp.temp-high {
+      border-color: rgba(244, 63, 94, 0.5);
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%);
+      animation: alertPulse 1.5s ease-in-out infinite;
+    }
+    
+    .card-temp.temp-critical {
+      border-color: rgba(239, 68, 68, 0.6);
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(127, 29, 29, 0.4) 100%);
+      animation: criticalPulse 1s ease-in-out infinite;
+    }
+    
+    @keyframes warmPulse {
+      0%, 100% { box-shadow: 0 4px 24px rgba(251, 146, 60, 0.3); }
+      50% { box-shadow: 0 8px 40px rgba(251, 146, 60, 0.5); }
+    }
+    
+    @keyframes alertPulse {
+      0%, 100% { box-shadow: 0 4px 24px rgba(244, 63, 94, 0.4), 0 0 40px rgba(244, 63, 94, 0.2); }
+      50% { box-shadow: 0 8px 40px rgba(244, 63, 94, 0.6), 0 0 60px rgba(244, 63, 94, 0.3); }
+    }
+    
+    @keyframes criticalPulse {
+      0%, 100% { 
+        box-shadow: 0 4px 32px rgba(239, 68, 68, 0.6), 0 0 60px rgba(239, 68, 68, 0.4);
+        transform: translateY(-8px) scale(1);
+      }
+      50% { 
+        box-shadow: 0 12px 48px rgba(239, 68, 68, 0.8), 0 0 80px rgba(239, 68, 68, 0.6);
+        transform: translateY(-10px) scale(1.02);
+      }
+    }
+    
+    .temp-icon {
+      transition: all 0.6s ease;
+    }
+    
+    .card-temp.temp-elevated .temp-icon {
+      filter: drop-shadow(0 4px 16px rgba(251, 146, 60, 0.6));
+    }
+    
+    .card-temp.temp-high .temp-icon {
+      filter: drop-shadow(0 4px 20px rgba(244, 63, 94, 0.7));
+    }
+    
+    .card-temp.temp-critical .temp-icon {
+      filter: drop-shadow(0 6px 24px rgba(239, 68, 68, 0.9));
+      animation: shakeTemp 0.5s ease-in-out infinite;
+    }
+    
+    @keyframes shakeTemp {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-3deg); }
+      75% { transform: rotate(3deg); }
+    }
+    
+    /* Room Temperature Card - Thermometer Icon */
+    .room-temp-icon {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .room-temp-icon::before {
+      content: '🏠';
+      position: absolute;
+      font-size: 1.2rem;
+      top: -8px;
+      right: -8px;
+      filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.4));
+    }
+    
+    /* Humidity Card - Animated Water Drop */
+    .humidity-drop {
+      position: relative;
+      display: inline-block;
+      animation: waterDrop 2.5s ease-in-out infinite;
+    }
+    
+    @keyframes waterDrop {
+      0%, 100% { transform: translateY(0) scale(1); }
+      15% { transform: translateY(-8px) scale(1.05); }
+      30% { transform: translateY(0) scale(1); }
+      35% { transform: scale(0.95); }
+      40% { transform: scale(1); }
+    }
+    
+    .humidity-drop::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      background: rgba(59, 130, 246, 0.6);
+      border-radius: 50%;
+      animation: dropletFall 2.5s ease-in-out infinite;
+      opacity: 0;
+    }
+    
+    @keyframes dropletFall {
+      0%, 20%, 100% { opacity: 0; transform: translateX(-50%) translateY(0); }
+      25% { opacity: 1; }
+      45% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    }
+    
+    /* Health Status Card - Enhanced */
+    .card-status {
+      grid-column: span 1;
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+      position: relative;
+      overflow: visible;
+    }
+    
+    .card-status::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 24px;
+      padding: 2px;
+      background: linear-gradient(135deg, #10b981, #06b6d4);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    
+    .card-status:hover::after {
+      opacity: 1;
+    }
+    
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 28px;
+      border-radius: 50px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: rgba(16, 185, 129, 0.15);
+      border: 2px solid rgba(16, 185, 129, 0.3);
+      color: #10b981;
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.2);
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .status-badge::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.6s ease;
+    }
+    
+    .status-badge:hover::before {
+      transform: translateX(100%);
+    }
+    
+    .status-badge .status-icon {
+      font-size: 1.5rem;
+      animation: statusFloat 2s ease-in-out infinite;
+    }
+    
+    @keyframes statusFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+    
+    .status-warning {
+      background: rgba(251, 146, 60, 0.15);
+      border-color: rgba(251, 146, 60, 0.4);
+      color: #fb923c;
+      box-shadow: 0 4px 24px rgba(251, 146, 60, 0.3);
+    }
+    
+    .status-warning .status-icon {
+      animation: warningPulse 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes warningPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+    
+    .status-danger {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: rgba(244, 63, 94, 0.5);
+      color: #f43f5e;
+      box-shadow: 0 6px 32px rgba(244, 63, 94, 0.4);
+      animation: dangerShake 2s ease-in-out infinite;
+    }
+    
+    .status-danger .status-icon {
+      animation: emergencyFlash 0.8s ease-in-out infinite;
+    }
+    
+    @keyframes dangerShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+    
+    @keyframes emergencyFlash {
+      0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+      50% { opacity: 0.7; transform: scale(1.2) rotate(15deg); }
+    }
+    
+    /* Chart Section */
+    .chart-section {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 24px;
+      padding: 32px;
+      backdrop-filter: blur(12px);
+      box-shadow: 
+        0 4px 24px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      margin-bottom: 40px;
+    }
+    
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    
+    .chart-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    
+    .chart-legend {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+      color: #cbd5e1;
+    }
+    
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      box-shadow: 0 0 8px currentColor;
+    }
+    
+    canvas {
+      width: 100% !important;
+      height: 400px !important;
+    }
+    
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: #64748b;
+      font-size: 0.875rem;
+      border-top: 1px solid rgba(59, 130, 246, 0.1);
+      margin-top: 40px;
+    }
+    
+    footer a {
+      color: #3b82f6;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+    
+    footer a:hover {
+      color: #8b5cf6;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      h1 { font-size: 2rem; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .chart-section { padding: 20px; }
+      canvas { height: 300px !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏥 Smart Health Dashboard</h1>
+      <div class="subtitle">
+        <span class="status-dot"></span>
+        Real-time IoT Health Monitoring System
+      </div>
+    </header>
+
+    <div class="cards-grid">
+      <div class="card card-heart">
+        <span class="card-icon">❤️</span>
+        <div class="card-label">Heart Rate</div>
+        <div class="card-value">
+          <span id="heartRate">--</span>
+          <span class="card-unit">bpm</span>
+        </div>
+      </div>
+
+      <div class="card card-temp" id="bodyTempCard">
+        <span class="card-icon temp-icon">🌡️</span>
+        <div class="card-label">Body Temperature</div>
+        <div class="card-value">
+          <span id="bodyTemp">--</span>
+          <span class="card-unit">°C</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="card-icon">🏠</span>
+        <div class="card-label">Room Temperature</div>
+        <div class="card-value">
+          <span id="roomTemp">--</span>
+          <span class="card-unit">°C</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="card-icon humidity-drop">💧</span>
+        <div class="card-label">Humidity</div>
+        <div class="card-value">
+          <span id="humidity">--</span>
+          <span class="card-unit">%</span>
+        </div>
+      </div>
+
+      <div class="card card-status">
+        <div class="card-label">Health Status</div>
+        <div class="card-value">
+          <span class="status-badge" id="statusBadge">
+            <span class="status-icon">✅</span>
+            <span>Normal</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-section">
+      <div class="chart-header">
+        <h2 class="chart-title">📊 Real-Time Trends</h2>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <span class="legend-dot" style="background: #f43f5e; color: #f43f5e;"></span>
+            Body Temperature
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background: #3b82f6; color: #3b82f6;"></span>
+            Heart Rate
+          </div>
+        </div>
+      </div>
+      <canvas id="healthChart"></canvas>
+    </div>
+
+    <footer>
+      💡 Designed with ❤️ by <a href="#">Team INNO</a> | Powered by Firebase & IoT
+    </footer>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/",
+      projectId: "YOUR_PROJECT_ID",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Chart setup
+    const ctx = document.getElementById('healthChart').getContext('2d');
+    const chartData = {
+      labels: [],
+      datasets: [
+        {
+          label: 'Body Temperature (°C)',
+          data: [],
+          borderColor: '#f43f5e',
+          backgroundColor: 'rgba(244, 63, 94, 0.1)',
+          tension: 0.4,
+          borderWidth: 3,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: '#f43f5e',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+        },
+        {
+          label: 'Heart Rate (bpm)',
+          data: [],
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          tension: 0.4,
+          borderWidth: 3,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: '#3b82f6',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+        }
+      ]
+    };
+
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: chartData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            titleColor: '#f1f5f9',
+            bodyColor: '#cbd5e1',
+            borderColor: 'rgba(59, 130, 246, 0.3)',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+            displayColors: true
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              color: 'rgba(59, 130, 246, 0.08)',
+              drawBorder: false
+            },
+            ticks: {
+              color: '#64748b',
+              font: { size: 11 }
+            }
+          },
+          y: {
+            grid: {
+              color: 'rgba(59, 130, 246, 0.08)',
+              drawBorder: false
+            },
+            ticks: {
+              color: '#64748b',
+              font: { size: 11 }
+            },
+            beginAtZero: true
+          }
+        },
+        animation: {
+          duration: 750,
+          easing: 'easeInOutQuart'
+        }
+      }
+    });
+
+    // Firebase data listener
+    const sysRef = ref(db, 'SmartSystem');
+    const bodyTempCard = document.getElementById('bodyTempCard');
+    const statusBadge = document.getElementById('statusBadge');
+
+    onValue(sysRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+
+      // Update card values
+      document.getElementById('heartRate').textContent = data.heartRate ?? '--';
+      document.getElementById('bodyTemp').textContent = data.bodyTemp ?? '--';
+      document.getElementById('roomTemp').textContent = data.roomTemp ?? '--';
+      document.getElementById('humidity').textContent = data.humidity ?? '--';
+
+      // Update body temperature card styling based on temperature ranges
+      bodyTempCard.classList.remove('temp-normal', 'temp-elevated', 'temp-high', 'temp-critical');
+      
+      const temp = parseFloat(data.bodyTemp);
+      if (!isNaN(temp)) {
+        if (temp < 37.5) {
+          bodyTempCard.classList.add('temp-normal');
+        } else if (temp >= 37.5 && temp < 38.5) {
+          bodyTempCard.classList.add('temp-elevated');
+        } else if (temp >= 38.5 && temp < 40) {
+          bodyTempCard.classList.add('temp-high');
+        } else if (temp >= 40) {
+          bodyTempCard.classList.add('temp-critical');
+        }
+      }
+
+      // Determine health status with enhanced states
+      let statusHTML = '<span class="status-icon">✅</span><span>Normal</span>';
+      let statusClass = '';
+      
+      if ((data.bodyTemp && data.bodyTemp >= 37.5) || (data.heartRate && data.heartRate > 100)) {
+        statusHTML = '<span class="status-icon">⚠️</span><span>Warning</span>';
+        statusClass = 'status-warning';
+      }
+      
+      if ((data.bodyTemp && data.bodyTemp >= 38.5) || (data.heartRate && data.heartRate > 120)) {
+        statusHTML = '<span class="status-icon">🚨</span><span>Emergency</span>';
+        statusClass = 'status-danger';
+      }
+      
+      statusBadge.innerHTML = statusHTML;
+      statusBadge.className = 'status-badge ' + statusClass;
+
+      // Update chart
+      const now = new Date().toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      
+      chartData.labels.push(now);
+      chartData.datasets[0].data.push(data.bodyTemp ?? null);
+      chartData.datasets[1].data.push(data.heartRate ?? null);
+
+      // Keep only last 30 data points
+      if (chartData.labels.length > 30) {
+        chartData.labels.shift();
+        chartData.datasets.forEach(dataset => dataset.data.shift());
+      }
+
+      chart.update('none');
+    });
+  </script>
+</body>
+</html>

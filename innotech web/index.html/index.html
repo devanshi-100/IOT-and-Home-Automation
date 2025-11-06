@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Smart Health Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; background: linear-gradient(120deg,#141E30,#243B55); color:#fff; text-align:center; }
+    .cards { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:20px; }
+    .card { background:#1E293B; padding:18px; width:220px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
+    .big { font-size:28px; font-weight:700; }
+    #chartContainer { width:80%; margin:30px auto; background:#111827; padding:12px; border-radius:10px; }
+  </style>
+</head>
+<body>
+  <h1>🏥 Smart Health Dashboard</h1>
+
+  <div class="cards">
+    <div class="card">
+      <div>❤️ Heart Rate</div>
+      <div id="heart" class="big">-- bpm</div>
+    </div>
+    <div class="card">
+      <div>🌡 Body Temp</div>
+      <div id="body" class="big">-- °C</div>
+    </div>
+    <div class="card">
+      <div>🏠 Room Temp</div>
+      <div id="room" class="big">-- °C</div>
+    </div>
+    <div class="card">
+      <div>💧 Humidity</div>
+      <div id="hum" class="big">-- %</div>
+    </div>
+    <div class="card">
+      <div>🔔 Status</div>
+      <div id="status" class="big">--</div>
+    </div>
+  </div>
+
+  <div id="chartContainer">
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- Firebase modular SDK (v9) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/",
+      projectId: "YOUR_PROJECT_ID",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Chart.js setup
+    const ctx = document.getElementById('chart').getContext('2d');
+    const chartData = {
+      labels: [],
+      datasets: [
+        { label: 'Body Temp (°C)', data: [], borderColor: 'rgba(255,99,132,1)', fill:false },
+        { label: 'Heart Rate (bpm)', data: [], borderColor: 'rgba(54,162,235,1)', fill:false }
+      ]
+    };
+    const myChart = new Chart(ctx, {
+      type: 'line',
+      data: chartData,
+      options: { responsive:true, animation:{duration:300}, scales:{ x:{ display:true } } }
+    });
+
+    // Listen to /SmartSystem node
+    const sysRef = ref(db, 'SmartSystem');
+    onValue(sysRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+      // update cards
+      document.getElementById('heart').innerText = data.heartRate ?? '--';
+      document.getElementById('body').innerText = data.bodyTemp ?? '--';
+      document.getElementById('room').innerText = data.roomTemp ?? '--';
+      document.getElementById('hum').innerText = data.humidity ?? '--';
+
+      // status simple rule (can be replaced by ML status)
+      let status = '✅ Normal';
+      if ((data.bodyTemp && data.bodyTemp>38) || (data.heartRate && data.heartRate>100)) {
+        status = '⚠ Fever';
+      }
+      if ((data.bodyTemp && data.bodyTemp>40) || (data.heartRate && data.heartRate>120)) {
+        status = '🚨 Emergency';
+      }
+      document.getElementById('status').innerText = status;
+
+      // push to chart (limit to last 30 points)
+      const now = new Date().toLocaleTimeString();
+      chartData.labels.push(now);
+      chartData.datasets[0].data.push(data.bodyTemp ?? null);
+      chartData.datasets[1].data.push(data.heartRate ?? null);
+      if (chartData.labels.length>30) {
+        chartData.labels.shift();
+        chartData.datasets.forEach(ds=>ds.data.shift());
+      }
+      myChart.update();
+    });
+
+  </script>
+</body>
+</html>
