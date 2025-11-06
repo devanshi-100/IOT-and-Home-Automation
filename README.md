@@ -314,10 +314,10 @@ Perfect, mam 💪 Here’s an upgraded and more beautiful version of your Smart 
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
     const firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/",
-      projectId: "YOUR_PROJECT_ID",
+      apiKey: "AIzaSyDAxsZXczJq-QsOVTzJLhIp-DnUeCZgw_o",
+      authDomain: "mediflow-fc122.firebaseapp.com",
+      databaseURL: "https://mediflow-fc122-default-rtdb.firebaseio.com",
+      projectId: "mediflow-fc122",
     };
 
     const app = initializeApp(firebaseConfig);
@@ -555,10 +555,10 @@ Below is your enhanced Smart Health Dashboard with:
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
     const firebaseConfig = {
-      apiKey: "YOUR_FIREBASE_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      databaseURL: "https://your-project-id-default-rtdb.firebaseio.com/",
-      projectId: "YOUR_PROJECT_ID",
+      apiKey: "AIzaSyDAxsZXczJq-QsOVTzJLhIp-DnUeCZgw_o",
+      authDomain: "mediflow-fc122.firebaseapp.com",
+      databaseURL: "https://mediflow-fc122-default-rtdb.firebaseio.com",
+      projectId: "mediflow-fc122",
     };
 
     const app = initializeApp(firebaseConfig);
