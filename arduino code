@@ -1,0 +1,249 @@
+// ======================================================
+// 🌟 PROJECT: Smart Health & Home System (FINAL READY VERSION)
+// ======================================================
+
+#define BLYNK_TEMPLATE_ID "TMPL3RY3hXKzd"
+#define BLYNK_TEMPLATE_NAME "Smart Health And Home System"
+#define BLYNK_AUTH_TOKEN "2wW1RyaoE_SuJFWO-fXC81OHSCG16FM_"
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+#include "DHT.h"
+
+// ======================================================
+// 🔌 PIN DEFINITIONS
+// ======================================================
+#define DHTPIN 25
+#define DHTTYPE DHT11
+#define PIR_PIN 33
+#define BUZZER 32
+#define LM35_PIN 34
+#define PULSE_PIN 35
+#define RELAY_MOTOR 27      // IN1 → Fan
+#define RELAY_LED 26        // IN2 → Light/LED
+
+// ======================================================
+// 🌐 Wi-Fi & Blynk Credentials
+// ======================================================
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = "Len";          // ✅ your WiFi name
+char pass[] = "12345678";    // ✅ your WiFi password
+
+DHT dht(DHTPIN, DHTTYPE);
+BlynkTimer timer;
+
+// ======================================================
+// ⚙ VARIABLES
+// ======================================================
+unsigned long lastMotionTime = 0;
+const unsigned long noMotionDelay = 3000; // 3 sec after no motion
+
+boolean Pulse = false;
+unsigned long lastBeat = 0;
+int BPM = 0;
+int IBI = 600;
+
+// ======================================================
+// 🌡 Stable Body Temperature Function (LM35 with Filtering)
+// ======================================================
+float readLM35C() {
+  static float lastTemp = 0;
+  long total = 0;
+
+  for (int i = 0; i < 20; i++) {
+    total += analogRead(LM35_PIN);
+    delay(2);
+  }
+
+  float raw = total / 20.0;
+  float voltage = raw * (3.3 / 4095.0);
+  float tempC = (voltage * 100.0) - 5.0; // calibration offset
+
+  if (abs(tempC - lastTemp) > 1.5) {
+    lastTemp = tempC;
+  } else {
+    tempC = lastTemp;
+  }
+
+  if (tempC < 0) tempC = 0;
+  return tempC;
+}
+
+// ======================================================
+// ❤ Heart Rate Function (real BPM only when finger detected)
+// ======================================================
+int readHeartRate() {
+  int Signal = analogRead(PULSE_PIN);
+
+  if (Signal < 50 || Signal > 4000) {
+    return 0; // no finger or disconnected
+  }
+
+  unsigned long currentTime = millis();
+
+  if (Signal > 520 && !Pulse) {
+    Pulse = true;
+    IBI = currentTime - lastBeat;
+    lastBeat = currentTime;
+
+    if (IBI > 300 && IBI < 2000) {
+      BPM = 60000 / IBI;
+    }
+  }
+
+  if (Signal < 520) Pulse = false;
+
+  if (millis() - lastBeat > 5000) BPM = 0; 
+  if (BPM < 40 || BPM > 180) BPM = 0;
+
+  return BPM;
+}
+
+// ======================================================
+// 🧠 Manual Fan Control (optional from Blynk)
+// ======================================================
+BLYNK_WRITE(V6) {
+  int fanState = param.asInt();
+  digitalWrite(RELAY_MOTOR, !fanState);
+  Blynk.virtualWrite(V5, fanState);
+}
+
+// ======================================================
+// 📡 Main Logic – Sensor Reading + Automation
+// ======================================================
+void sendSensorData() {
+  float humidity = dht.readHumidity();
+  float roomTemp = dht.readTemperature();
+  float bodyTemp = readLM35C();
+  int heartRate = readHeartRate();
+  int motion = digitalRead(PIR_PIN);
+
+  // --- Send Data to Blynk ---
+  Blynk.virtualWrite(V1, bodyTemp);
+  Blynk.virtualWrite(V2, heartRate);
+  Blynk.virtualWrite(V3, roomTemp);
+  Blynk.virtualWrite(V4, humidity);
+
+  Serial.println("\n====== 📊 SENSOR READINGS ======");
+  Serial.printf("🌡 Body Temp: %.2f°C | 🏠 Room Temp: %.2f°C | 💧 Humidity: %.2f%% | ❤ BPM: %d\n",
+                bodyTemp, roomTemp, humidity, heartRate);
+  Serial.printf("🚶 Motion: %s\n", motion ? "Detected" : "No Movement");
+
+  // ======================================================
+  // ⚙ PIR Motion Logic (Instant reaction + Green/Red LED)
+  // ======================================================
+  if (motion == HIGH) {
+    digitalWrite(RELAY_LED, HIGH);  // LED OFF instantly
+    lastMotionTime = millis();
+
+    Blynk.setProperty(V9, "color", "#00FF00");
+    Blynk.virtualWrite(V9, 1);
+  } 
+  else if (millis() - lastMotionTime > noMotionDelay) {
+    digitalWrite(RELAY_LED, LOW);   // LED ON after 3 sec
+
+    Blynk.setProperty(V9, "color", "#FF0000");
+    Blynk.virtualWrite(V9, 1);
+  }
+
+  // ======================================================
+  // 🌀 FAN LOGIC (Auto control >30°C)
+  // ======================================================
+  float maxTemp = max(bodyTemp, roomTemp);
+
+  if (maxTemp > 30.0) {
+    digitalWrite(RELAY_MOTOR, LOW);
+    Blynk.virtualWrite(V6, 1);
+    Serial.printf("🌀 FAN ON (Temp = %.2f°C > 30°C)\n", maxTemp);
+  } else {
+    digitalWrite(RELAY_MOTOR, HIGH);
+    Blynk.virtualWrite(V6, 0);
+    Serial.printf("🌀 FAN OFF (Temp = %.2f°C <= 30°C)\n", maxTemp);
+  }
+
+  // ======================================================
+  // 🔔 BUZZER LOGIC (Heart Rate > 80 BPM)
+  // ======================================================
+  if (heartRate > 80 && heartRate < 180) {
+    tone(BUZZER, 1000);   // continuous alert beep
+    Serial.println("💓 ALERT: Heart Rate High! Buzzer ON!");
+  } else {
+    noTone(BUZZER);
+  }
+
+  Serial.println("=================================\n");
+}
+
+// ======================================================
+// ⚙ SETUP
+// ======================================================
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  pinMode(RELAY_MOTOR, OUTPUT);
+  pinMode(RELAY_LED, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
+  pinMode(PIR_PIN, INPUT);
+  pinMode(PULSE_PIN, INPUT);
+
+  digitalWrite(RELAY_MOTOR, HIGH);
+  digitalWrite(RELAY_LED, LOW);
+  digitalWrite(BUZZER, LOW);
+
+  dht.begin();
+
+  // -----------------------------
+  // 🟢 Non-blocking WiFi + Blynk
+  // -----------------------------
+  Serial.println("✅ ESP32 Booting...");
+  WiFi.begin(ssid, pass);
+  Serial.print("Connecting to WiFi");
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n✅ WiFi Connected!");
+    Blynk.config(auth);
+    Blynk.connect();
+  } else {
+    Serial.println("\n⚠ WiFi Failed! Running offline...");
+  }
+
+  timer.setInterval(1000L, sendSensorData); // every 1 sec
+
+  // Default motion indicator color (Red)
+  Blynk.setProperty(V9, "color", "#FF0000");
+  Blynk.virtualWrite(V9, 1);
+
+  Serial.println("✅ Smart Health & Home System Started Successfully!");
+}
+
+// ======================================================
+// 🔁 LOOP
+// ======================================================
+void loop() {
+  Blynk.run();
+  timer.run();
+
+  // Real-time PIR scanning (instant feedback)
+  int motion = digitalRead(PIR_PIN);
+  if (motion == HIGH) {
+    digitalWrite(RELAY_LED, HIGH);
+    lastMotionTime = millis();
+    Blynk.setProperty(V9, "color", "#00FF00");
+  } 
+  else if (millis() - lastMotionTime > noMotionDelay) {
+    digitalWrite(RELAY_LED, LOW);
+    Blynk.setProperty(V9, "color", "#FF0000");
+  }
+
+  // Continuous heart rate sampling
+  readHeartRate();
+}
